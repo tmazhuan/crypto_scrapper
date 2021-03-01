@@ -141,14 +141,17 @@ impl CoinMarketCapScrapper {
         return 0.0;
     }
 
+    #[allow(unused)]
     pub fn get_24h_performance(&self, symbol: &str) -> f64 {
         0.0
     }
 
+    #[allow(unused)]
     pub fn get_7d_performance(&self, symbol: &str) -> f64 {
         0.0
     }
 
+    #[allow(unused)]
     fn get_performance(&self, symbol: &str, regex: String) -> f64 {
         0.0
     }

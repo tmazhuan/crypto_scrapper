@@ -61,26 +61,26 @@ mod tests {
     fn test_new() {
         let config_file = ConfigObject::new(String::from("./config/test.toml"));
         assert_eq!(
-            ConfigObject.configuration.about_regex,
+            config_file.configuration.about_regex,
             String::from("about_regex")
         );
         assert_eq!(
-            ConfigObject.configuration.what_is_regex,
+            config_file.configuration.what_is_regex,
             String::from("what_is_regex")
         );
-        assert_eq!(ConfigObject.configuration.symbols.len(), 3);
+        assert_eq!(config_file.configuration.symbols.len(), 3);
     }
     #[test]
     fn test_default() {
         let config_file: ConfigObject = Default::default();
         assert_eq!(
-            config_file.about_regex,
+            config_file.configuration.about_regex,
             String::from(r#"<(h2)\s{1}.{1,20}\s{1}(class=".*?")>About.{1,30}</h2>"#)
         );
         assert_eq!(
-            config_file.what_is_regex,
+            config_file.configuration.what_is_regex,
             String::from(r#"<(h\d)\s{1}(.{1,20}="what-is-.*?")>.*?</h\d>"#)
         );
-        assert_eq!(config_file.symbols.len(), 3);
+        assert_eq!(config_file.configuration.symbols.len(), 3);
     }
 }
