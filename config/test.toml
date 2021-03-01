@@ -1,0 +1,34 @@
+about_regex = 'about_regex'
+what_is_regex = 'what_is_regex'
+symbols = [
+    'symbol1',
+    'symbol2',
+    'symmbol3',
+]
+regex_expressions = [
+    'regex_expression1',
+    'regex_expression2',
+    'regex_expression3',
+]
+replace_expressions = [
+    'replace_expression1',
+    'replace_expression2',
+    'replace_expression3',
+]
+
+
+[[replace]]
+from = 'from1'
+to = 'to1'
+
+[[replace]]
+from = 'from2'
+to = 'to2'
+
+[[replace]]
+from = 'from3'
+to = 'to3'
+
+[[test]]
+from = 'from4'
+to = 'to4'
