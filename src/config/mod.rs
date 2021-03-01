@@ -42,6 +42,10 @@ impl ConfigObject {
         }
     }
 
+    pub fn add_symbol(&mut self, symbol: String) {
+        &self.configuration.symbols.push(symbol);
+    }
+
     pub fn store(&self) -> std::io::Result<()> {
         std::fs::write(
             &self.source,
