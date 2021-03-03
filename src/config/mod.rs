@@ -13,6 +13,7 @@ pub struct Config {
     pub replace_expressions: Vec<String>,
     pub about_regex: String,
     pub what_is_regex: String,
+    pub title_regex: String,
     pub price_regex: String,
     pub replace: Vec<Replace>,
 }
