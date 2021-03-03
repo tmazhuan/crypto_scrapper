@@ -1,6 +1,7 @@
 about_regex = 'about_regex'
 what_is_regex = 'what_is_regex'
 price_regex = 'price_regex'
+title_regex = "title_regex"
 symbols = [
     'symbol1',
     'symbol2',
