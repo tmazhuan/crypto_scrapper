@@ -17,6 +17,14 @@ from = "</li>"
 to = "\\n"
 
 [[replace]]
+from = "<ul>"
+to = ""
+
+[[replace]]
+from = "</ul>"
+to = "\\n"
+
+[[replace]]
 from = "<p>"
 to = ""
 
