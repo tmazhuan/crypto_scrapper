@@ -25,7 +25,7 @@ impl MarketResult {
     }
     fn get_spaces(&self, i: usize) -> String {
         let mut temp = String::new();
-        for _ in i..20 {
+        for _ in 0..i {
             temp.push_str(" ");
         }
         String::from(&temp)
@@ -33,15 +33,23 @@ impl MarketResult {
 }
 impl Display for MarketResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let column_widht = 20;
+        let column_widht = 15;
         let mut result = String::from(&self.source);
+        // let mut len = self.source.len();
+        // println!("{}", column_widht - len);
         result.push_str(&self.get_spaces(column_widht - self.source.len()));
         result.push_str(&self.pair);
+        // len = self.pair.len();
+        // println!("{}", column_widht - len);
         result.push_str(&self.get_spaces(column_widht - self.pair.len()));
         let price = format!("{}", (self.price));
+        // len = price.len();
+        // println!("{}", column_widht - len);
         result.push_str(&price);
         result.push_str(&self.get_spaces(column_widht - price.len()));
         let vol = format!("{}", (self.volume));
+        // len = vol.len();
+        // println!("{}", column_widht - len);
         result.push_str(&vol);
         result.push_str(&self.get_spaces(column_widht - vol.len()));
         let vol_per = format!("{}", (self.volume_percent));
@@ -62,7 +70,8 @@ impl CoinMarketCapScrapper {
     }
     pub fn new_get_details(&self, symbol: &str) -> Result<String, ParseError> {
         let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+        // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+        let html = html_parser::get_html_source(&url)?;
         let mut what_is_inner = match html_parser::get_inner_html_from_element(
             &self.cfg.configuration.what_is_regex,
             &html,
@@ -111,7 +120,8 @@ impl CoinMarketCapScrapper {
 
     pub fn get_price(&self, symbol: &str) -> Result<(f64, f64), ParseError> {
         let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+        // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+        let html = html_parser::get_html_source(&url)?;
         let reg_price_section = r#"(div) (class=".{1,20}priceTitle__.{1,20}")>"#;
         //price
         let price = match html_parser::get_inner_html_from_element(
@@ -171,8 +181,8 @@ impl CoinMarketCapScrapper {
         let mut result = Vec::new();
         for i in 0..number_of_results {
             let url = format!("https://coinmarketcap.com/currencies/{}/markets", symbol);
-            let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
-            html.skj();
+            // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+            let html = html_parser::get_html_source(&url)?;
             let regex = r#"<(table) (class=".*?currencies-markets_.*? ")>"#;
             let rel_source = vec![vec![
                 Child(1),
@@ -209,10 +219,13 @@ impl CoinMarketCapScrapper {
 }
 
 mod html_parser {
+    use fantoccini::ClientBuilder;
     use regex::Regex;
     use scraper::{ElementRef, Html, Selector};
     use std::error::Error;
     use std::fmt;
+    use std::process::Command;
+    use tokio::runtime::Runtime;
 
     pub struct ParseError {
         details: String,
@@ -244,6 +257,26 @@ mod html_parser {
         Sibling(i32),
     }
 
+    pub fn get_html_source(url: &str) -> Result<String, ParseError> {
+        let rt = Runtime::new().unwrap();
+        let mut source = String::new();
+        rt.block_on(async {
+            // let mut handle = Command::new("chromedriver")
+            //     .spawn()
+            //     .expect("ls command failed to start");
+            let mut c = ClientBuilder::native()
+                .connect("http://localhost:9515")
+                .await
+                .unwrap();
+
+            // // first, go to the Wikipedia page for Foobar
+            c.goto(url).await.unwrap();
+            source = c.source().await.unwrap();
+            let _re = c.close().await.unwrap();
+            // handle.kill().expect("Kill not successful");
+        });
+        Ok(source)
+    }
     pub fn get_inner_html_from_element(
         regex: &str,
         source: &str,
@@ -261,7 +294,7 @@ mod html_parser {
                 )));
             }
         };
-        println!("tag: {}, attribute: {}", tag, attribute);
+        // println!("tag: {}, attribute: {}", tag, attribute);
         let selector = Selector::parse(&format!("{}[{}]", tag, attribute)).unwrap();
         // let element = document.select(&selector).next().unwrap();
         let document = Html::parse_document(&source);
