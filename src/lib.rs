@@ -222,9 +222,9 @@ mod html_parser {
     use fantoccini::ClientBuilder;
     use regex::Regex;
     use scraper::{ElementRef, Html, Selector};
+    use std::collections::HashMap;
     use std::error::Error;
     use std::fmt;
-    use std::process::Command;
     use tokio::runtime::Runtime;
 
     pub struct ParseError {
@@ -257,86 +257,101 @@ mod html_parser {
         Sibling(i32),
     }
 
-    pub fn get_html_source(url: &str) -> Result<String, ParseError> {
-        let rt = Runtime::new().unwrap();
-        let mut source = String::new();
-        rt.block_on(async {
-            // let mut handle = Command::new("chromedriver")
-            //     .spawn()
-            //     .expect("ls command failed to start");
-            let mut c = ClientBuilder::native()
-                .connect("http://localhost:9515")
-                .await
-                .unwrap();
-
-            // // first, go to the Wikipedia page for Foobar
-            c.goto(url).await.unwrap();
-            source = c.source().await.unwrap();
-            let _re = c.close().await.unwrap();
-            // handle.kill().expect("Kill not successful");
-        });
-        Ok(source)
+    struct Html_Parser {
+        client: fantoccini::Client,
+        cache: HashMap<String, String>,
     }
-    pub fn get_inner_html_from_element(
-        regex: &str,
-        source: &str,
-        relations: Vec<Vec<ElementRelation>>,
-    ) -> Result<Vec<String>, ParseError> {
-        let re = Regex::new(regex).unwrap();
-        let cap = re.captures(source);
-        let (tag, attribute) = match cap {
-            Some(c) => (String::from(&c[1]), String::from(&c[2])),
-            None => {
-                println!("Regex: {}", regex);
-                // println!("html: {}", source);
-                return Err(ParseError::new(String::from(
-                    "Element not found. Please check manually",
-                )));
-            }
-        };
-        // println!("tag: {}, attribute: {}", tag, attribute);
-        let selector = Selector::parse(&format!("{}[{}]", tag, attribute)).unwrap();
-        // let element = document.select(&selector).next().unwrap();
-        let document = Html::parse_document(&source);
-        let r = document.select(&selector).next().unwrap();
-        let mut result: Vec<String> = Vec::new();
-        for rel in relations {
-            let inner = navigate_relation(rel, r);
-            result.push(inner.inner_html())
+
+    impl Html_Parser {
+        pub fn new() -> Html_Parser {
+            let rt = Runtime::new().unwrap();
+            let client: fantoccini::Client;
+            rt.block_on(async {
+                client = ClientBuilder::native()
+                    .connect("http://localhost:9515")
+                    .await
+                    .unwrap();
+            });
+            return Html_Parser {
+                client: client,
+                cache: HashMap::new(),
+            };
         }
-        return Ok(result);
-    }
 
-    fn navigate_relation(rel: Vec<ElementRelation>, element: scraper::ElementRef) -> ElementRef {
-        let mut result = element.clone();
-        for relation in rel.iter() {
-            result = match relation {
-                ElementRelation::Parent => ElementRef::wrap(result.parent().unwrap()).unwrap(),
-                ElementRelation::Child(i) => {
-                    if *i < 0 {
-                        ElementRef::wrap(result.last_child().unwrap()).unwrap()
-                    } else if *i == 0 {
-                        ElementRef::wrap(result.first_child().unwrap()).unwrap()
-                    } else {
-                        let mut sib = ElementRef::wrap(result.first_child().unwrap()).unwrap();
+        pub fn get_html_source(url: &str) -> Result<String, ParseError> {
+            let rt = Runtime::new().unwrap();
+            let mut source = String::new();
+            rt.block_on(async {
+                c.goto(url).await.unwrap();
+                source = c.source().await.unwrap();
+                let _re = c.close().await.unwrap();
+            });
+            Ok(source)
+        }
+        pub fn get_inner_html_from_element(
+            regex: &str,
+            source: &str,
+            relations: Vec<Vec<ElementRelation>>,
+        ) -> Result<Vec<String>, ParseError> {
+            let re = Regex::new(regex).unwrap();
+            let cap = re.captures(source);
+            let (tag, attribute) = match cap {
+                Some(c) => (String::from(&c[1]), String::from(&c[2])),
+                None => {
+                    println!("Regex: {}", regex);
+                    // println!("html: {}", source);
+                    return Err(ParseError::new(String::from(
+                        "Element not found. Please check manually",
+                    )));
+                }
+            };
+            // println!("tag: {}, attribute: {}", tag, attribute);
+            let selector = Selector::parse(&format!("{}[{}]", tag, attribute)).unwrap();
+            // let element = document.select(&selector).next().unwrap();
+            let document = Html::parse_document(&source);
+            let r = document.select(&selector).next().unwrap();
+            let mut result: Vec<String> = Vec::new();
+            for rel in relations {
+                let inner = navigate_relation(rel, r);
+                result.push(inner.inner_html())
+            }
+            return Ok(result);
+        }
+
+        fn navigate_relation(
+            rel: Vec<ElementRelation>,
+            element: scraper::ElementRef,
+        ) -> ElementRef {
+            let mut result = element.clone();
+            for relation in rel.iter() {
+                result = match relation {
+                    ElementRelation::Parent => ElementRef::wrap(result.parent().unwrap()).unwrap(),
+                    ElementRelation::Child(i) => {
+                        if *i < 0 {
+                            ElementRef::wrap(result.last_child().unwrap()).unwrap()
+                        } else if *i == 0 {
+                            ElementRef::wrap(result.first_child().unwrap()).unwrap()
+                        } else {
+                            let mut sib = ElementRef::wrap(result.first_child().unwrap()).unwrap();
+                            for _ in 0..*i {
+                                sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
+                            }
+                            sib //for j in
+                        } //if then else i
+                    } //ElementRelation::Child
+                    ElementRelation::Sibling(i) => {
+                        let mut sib = ElementRef::wrap(result.next_sibling().unwrap()).unwrap();
                         for _ in 0..*i {
                             sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
                         }
-                        sib //for j in
-                    } //if then else i
-                } //ElementRelation::Child
-                ElementRelation::Sibling(i) => {
-                    let mut sib = ElementRef::wrap(result.next_sibling().unwrap()).unwrap();
-                    for _ in 0..*i {
-                        sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
-                    }
-                    sib
-                } //ElementRelation::Sibling
-            }; //match relation
-               // println!("result: {}\n\n", result.inner_html());
-        } //for relation
-        result
-    } //fn navigate_relation
+                        sib
+                    } //ElementRelation::Sibling
+                }; //match relation
+                   // println!("result: {}\n\n", result.inner_html());
+            } //for relation
+            result
+        } //fn navigate_relation
+    }
 }
 
 #[cfg(test)]
