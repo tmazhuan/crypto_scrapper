@@ -278,14 +278,23 @@ mod html_parser {
             };
         }
 
-        pub fn get_html_source(url: &str) -> Result<String, ParseError> {
+        pub fn get_html_source(&self, url: &str, reload: bool) -> Result<String, ParseError> {
+            //first lets check if we have the source already in the cache if we don't need to reload
+            if !reload {
+                //check if data is alread in the cache
+                if self.cache.contains_key(url) {
+                    return Ok(String::from(self.cache.get(url).unwrap()));
+                }
+            };
             let rt = Runtime::new().unwrap();
             let mut source = String::new();
             rt.block_on(async {
-                c.goto(url).await.unwrap();
-                source = c.source().await.unwrap();
-                let _re = c.close().await.unwrap();
+                self.client.goto(url).await.unwrap();
+                source = self.client.source().await.unwrap();
+                let _re = self.client.close().await.unwrap();
             });
+            //add data to cache
+            self.cache.insert(String::from(url), source);
             Ok(source)
         }
         pub fn get_inner_html_from_element(
