@@ -2,7 +2,7 @@ pub mod config;
 
 use config::ConfigObject;
 use html_parser::ElementRelation::Child;
-use html_parser::{ElementRelation, ParseError};
+use html_parser::{ElementRelation, Html_Parser, ParseError};
 use regex::Regex;
 use std::fmt;
 use std::fmt::Display;
@@ -60,12 +60,14 @@ impl Display for MarketResult {
 
 pub struct CoinMarketCapScrapper {
     cfg: ConfigObject,
+    html_parser: Html_Parser,
 }
 
 impl CoinMarketCapScrapper {
     pub fn new(config_file_location: String) -> CoinMarketCapScrapper {
         CoinMarketCapScrapper {
             cfg: ConfigObject::new(config_file_location),
+            html_parser: Html_Parser::new(),
         }
     }
     pub fn new_get_details(&self, symbol: &str) -> Result<String, ParseError> {
@@ -257,7 +259,7 @@ mod html_parser {
         Sibling(i32),
     }
 
-    struct Html_Parser {
+    pub struct Html_Parser {
         client: fantoccini::Client,
         cache: HashMap<String, String>,
     }
@@ -326,46 +328,42 @@ mod html_parser {
             }
             return Ok(result);
         }
+    }
 
-        fn navigate_relation(
-            rel: Vec<ElementRelation>,
-            element: scraper::ElementRef,
-        ) -> ElementRef {
-            let mut result = element.clone();
-            for relation in rel.iter() {
-                result = match relation {
-                    ElementRelation::Parent => ElementRef::wrap(result.parent().unwrap()).unwrap(),
-                    ElementRelation::Child(i) => {
-                        if *i < 0 {
-                            ElementRef::wrap(result.last_child().unwrap()).unwrap()
-                        } else if *i == 0 {
-                            ElementRef::wrap(result.first_child().unwrap()).unwrap()
-                        } else {
-                            let mut sib = ElementRef::wrap(result.first_child().unwrap()).unwrap();
-                            for _ in 0..*i {
-                                sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
-                            }
-                            sib //for j in
-                        } //if then else i
-                    } //ElementRelation::Child
-                    ElementRelation::Sibling(i) => {
-                        let mut sib = ElementRef::wrap(result.next_sibling().unwrap()).unwrap();
+    fn navigate_relation(rel: Vec<ElementRelation>, element: scraper::ElementRef) -> ElementRef {
+        let mut result = element.clone();
+        for relation in rel.iter() {
+            result = match relation {
+                ElementRelation::Parent => ElementRef::wrap(result.parent().unwrap()).unwrap(),
+                ElementRelation::Child(i) => {
+                    if *i < 0 {
+                        ElementRef::wrap(result.last_child().unwrap()).unwrap()
+                    } else if *i == 0 {
+                        ElementRef::wrap(result.first_child().unwrap()).unwrap()
+                    } else {
+                        let mut sib = ElementRef::wrap(result.first_child().unwrap()).unwrap();
                         for _ in 0..*i {
                             sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
                         }
-                        sib
-                    } //ElementRelation::Sibling
-                }; //match relation
-                   // println!("result: {}\n\n", result.inner_html());
-            } //for relation
-            result
-        } //fn navigate_relation
-    }
+                        sib //for j in
+                    } //if then else i
+                } //ElementRelation::Child
+                ElementRelation::Sibling(i) => {
+                    let mut sib = ElementRef::wrap(result.next_sibling().unwrap()).unwrap();
+                    for _ in 0..*i {
+                        sib = ElementRef::wrap(sib.next_sibling().unwrap()).unwrap();
+                    }
+                    sib
+                } //ElementRelation::Sibling
+            }; //match relation
+               // println!("result: {}\n\n", result.inner_html());
+        } //for relation
+        result
+    } //fn navigate_relation
 }
 
 #[cfg(test)]
 mod tests {
-    use super::html_parser;
     use super::CoinMarketCapScrapper;
     #[test]
     // fn test_get_inner_html_from_element() {
