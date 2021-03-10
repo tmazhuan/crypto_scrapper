@@ -5,7 +5,8 @@ use crypto_scrapper::CoinMarketCapScrapper;
 
 fn main() {
     // quick_test();
-    let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
+    let mut scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
+    println!("in main after CoinMarketScrapper::new");
     let response = scrapper.get_market_data("iota", 3);
     match response {
         Ok(res) => {
@@ -15,7 +16,7 @@ fn main() {
         }
         Err(e) => println!("{}", e),
     }
-    let details = scrapper.new_get_details("bitcoin");
+    let details = scrapper.get_details("bitcoin");
     match details {
         Ok(r) => println!("{}", r),
         Err(e) => println!("{}", e),
