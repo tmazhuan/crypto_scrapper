@@ -2,30 +2,62 @@ pub mod config;
 
 // use config::*;
 use crypto_scrapper::CoinMarketCapScrapper;
-
+use std::time::Instant;
 fn main() {
     // quick_test();
-    let mut scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
-    println!("in main after CoinMarketScrapper::new");
-    let response = scrapper.get_market_data("iota", 3);
-    match response {
-        Ok(res) => {
-            for r in res {
-                println!("{}", r);
-            }
-        }
-        Err(e) => println!("{}", e),
+    let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
+    // println!("in main after CoinMarketScrapper::new");
+    // let symbols = vec![
+    //     "iota".to_string(),
+    //     "bitcoin".to_string(),
+    //     "ethereum".to_string(),
+    // ];
+    // let price = scrapper.get_prices(&symbols);
+    // match price {
+    //     Ok(res) => {
+    //         for r in res {
+    //             println!("{}", r)
+    //         }
+    //     }
+    //     Err(s) => println!("{}", s),
+    // }
+    let now = Instant::now();
+    let _price = scrapper.get_all_prices();
+    println!("Parallel time elapsed: {}", now.elapsed().as_secs());
+    // match price {
+    //     Ok(res) => {
+    //         for r in res {
+    //             println!("{}", r)
+    //         }
+    //     }
+    //     Err(s) => println!("{}", s),
+    // }
+    let symbols = scrapper.cfg.get_symbols();
+    let mut result = Vec::new();
+    let now = Instant::now();
+    for s in symbols {
+        result.push(scrapper.get_price(&s).unwrap());
     }
-    let details = scrapper.get_details("bitcoin");
-    match details {
-        Ok(r) => println!("{}", r),
-        Err(e) => println!("{}", e),
-    }
-    let price = scrapper.get_price(&String::from("cardano"));
-    match price {
-        Ok((p, c)) => println!("Price is: {}\nPercentage Change is {}", p, c),
-        Err(s) => println!("{}", s),
-    }
+    println!("sequentiell time elapsed {}", now.elapsed().as_secs());
+    // for r in result {
+    //     println!("{}", r)
+    // }
+
+    // println!("Result has {} entries", result.len());
+    // let response = scrapper.get_market_data("iota", 3);
+    // match response {
+    //     Ok(res) => {
+    //         for r in res {
+    //             println!("{}", r);
+    //         }
+    //     }
+    //     Err(e) => println!("{}", e),
+    // }
+    // let details = scrapper.get_details("bitcoin");
+    // match details {
+    //     Ok(r) => println!("{}", r),
+    //     Err(e) => println!("{}", e),
+    // }
 }
 
 #[allow(unused)]

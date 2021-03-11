@@ -1,6 +1,20 @@
 symbols = ['iota',
     'bitcoin',
-    'ethereum',]
+    'ethereum',
+    'polkadot-new',
+    'cardano',
+    'synthetix-network-token',
+    'dash',
+    'curve-dao-token',
+    '1inch',
+    'avalanche',
+    'binance-coin',
+    'tether',
+    'crypto-com-coin',
+    'litentry',
+    'bakerytoken',
+    'xrp',
+    'binance-coin',]
 regex_expressions = ["<a href=\".*?\">", "<a class=\".*?\" href=\".*?\">", "<div class=\".*?\">", "<a target=\".*?\" href=\".*?\" rel=\".*?\">", "<a target=\".*?\" rel=\".*?\" href=\".*?\">", "<a rel=\".*?\" target=\".*?\" href=\".*?\">"]
 replace_expressions = ["<strong>", "</strong>", "<!-- -->", "<div>", "</div>", "<span>", "</span>", "</a>"]
 about_regex = "<(h2)\\s{1}.{1,20}\\s{1}(class=\".*?\")>About.{1,30}</h2>"

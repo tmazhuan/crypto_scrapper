@@ -47,6 +47,13 @@ impl ConfigObject {
     pub fn add_symbol(&mut self, symbol: String) {
         &self.configuration.symbols.push(symbol);
     }
+    pub fn get_symbols(&self) -> Vec<String> {
+        let mut result = Vec::new();
+        for s in &self.configuration.symbols {
+            result.push(String::from(s));
+        }
+        return result;
+    }
 
     pub fn store(&self) -> std::io::Result<()> {
         std::fs::write(

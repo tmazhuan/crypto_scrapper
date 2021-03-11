@@ -7,6 +7,17 @@ use regex::Regex;
 use std::fmt;
 use std::fmt::Display;
 
+pub struct PriceResult {
+    symbol: String,
+    price: f64,
+    change: f64,
+}
+
+impl Display for PriceResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {} ({})", self.symbol, self.price, self.change)
+    }
+}
 pub struct MarketResult {
     source: String,
     pair: String,
@@ -59,7 +70,7 @@ impl Display for MarketResult {
 }
 
 pub struct CoinMarketCapScrapper {
-    cfg: ConfigObject,
+    pub cfg: ConfigObject,
     html_parser: HtmlParser,
     runtime: tokio::runtime::Runtime,
 }
@@ -76,7 +87,7 @@ impl CoinMarketCapScrapper {
         let rt = tokio::runtime::Runtime::new().unwrap();
         CoinMarketCapScrapper {
             cfg: ConfigObject::new(config_file_location),
-            html_parser: rt.block_on(async { HtmlParser::new().await }),
+            html_parser: rt.block_on(async { HtmlParser::new(0).await }),
             runtime: rt,
         }
     }
@@ -87,17 +98,17 @@ impl CoinMarketCapScrapper {
         // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
         let html = self
             .runtime
-            .block_on(self.html_parser.get_html_source(&url, false))
+            .block_on(self.html_parser.get_html_source_with_script(&url, false))
             .unwrap();
         // let html = self.html_parser.get_html_source(&url, false)?;
-        let mut what_is_inner = match self.html_parser.get_inner_html_from_element(
+        let mut what_is_inner = match HtmlParser::get_inner_html_from_element(
             &self.cfg.configuration.what_is_regex,
             &html,
             vec![vec![ElementRelation::Parent]],
         ) {
             Ok(s) => String::from(&s[0]),
             Err(_) => {
-                match self.html_parser.get_inner_html_from_element(
+                match HtmlParser::get_inner_html_from_element(
                     &self.cfg.configuration.about_regex,
                     &html,
                     vec![vec![ElementRelation::Parent]],
@@ -136,17 +147,42 @@ impl CoinMarketCapScrapper {
         String::from(text)
     }
 
-    pub fn get_price(&mut self, symbol: &str) -> Result<(f64, f64), ParseError> {
-        let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
-        // let html = self.html_parser.get_html_source(&url, true)?;
-        let html = self
-            .runtime
-            .block_on(self.html_parser.get_html_source(&url, false))
-            .unwrap();
+    pub fn get_all_prices(&self) -> Result<Vec<PriceResult>, ParseError> {
+        self.get_prices(&self.cfg.configuration.symbols)
+    }
+    pub fn get_prices(&self, symbols: &Vec<String>) -> Result<Vec<PriceResult>, ParseError> {
+        let x = self.runtime.block_on(async {
+            let mut result = Vec::new();
+            for s in symbols {
+                let symbol = String::from(s);
+                let r = tokio::spawn(async move {
+                    println!("Spawning {}", symbol);
+                    let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
+                    let html = HtmlParser::get_html_source_no_script(&url).await.unwrap();
+                    CoinMarketCapScrapper::parse_price(html, url, symbol).unwrap()
+                })
+                .await
+                .unwrap();
+                println!("Pushing {}", r.symbol);
+                result.push(r);
+            }
+            result
+        });
+        Ok(x)
+
+        // let r = self
+        //     .runtime
+        //     .block_on(tokio::spawn(async move {
+        //         let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
+        //         let html = HtmlParser::get_html_source_no_script(&url).await.unwrap();
+        //         CoinMarketCapScrapper::parse_price(html, url).unwrap()
+        //     }))
+        //     .unwrap();
+    }
+    fn parse_price(html: String, url: String, symbol: String) -> Result<PriceResult, ParseError> {
         let reg_price_section = r#"(div) (class=".{1,20}priceTitle__.{1,20}")>"#;
         //price
-        let price = match self.html_parser.get_inner_html_from_element(
+        let price = match HtmlParser::get_inner_html_from_element(
             reg_price_section,
             &html,
             vec![vec![ElementRelation::Child(0)]],
@@ -160,7 +196,7 @@ impl CoinMarketCapScrapper {
             .parse::<f64>()
             .unwrap();
         //Percentage
-        let percentage = match self.html_parser.get_inner_html_from_element(
+        let percentage = match HtmlParser::get_inner_html_from_element(
             reg_price_section,
             &html,
             vec![vec![ElementRelation::Child(0), ElementRelation::Sibling(0)]],
@@ -171,7 +207,7 @@ impl CoinMarketCapScrapper {
         let per_regex = r#"<span class="(.{1,20})"></span>([0-9]+[.]?[0-9]*)<!-- -->%"#;
         let re = Regex::new(per_regex).unwrap();
         let cap = re.captures(&percentage);
-        let percentage = match cap {
+        let change = match cap {
             Some(c) => {
                 let p = String::from(&c[2]).parse::<f64>().unwrap();
                 let s = match String::from(&c[1]).find("icon-Caret-up") {
@@ -187,7 +223,25 @@ impl CoinMarketCapScrapper {
                 )));
             }
         };
-        Ok((price, percentage))
+        Ok(PriceResult {
+            symbol,
+            price,
+            change,
+        })
+    }
+    pub fn get_price(&self, symbol: &str) -> Result<PriceResult, ParseError> {
+        let mut result = self.get_prices(&vec![String::from(symbol)]).unwrap();
+        Ok(result.pop().unwrap())
+        // let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
+        // // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
+        // // let html = self.html_parser.get_html_source(&url, true)?;
+        // println!("Before html");
+        // let html = self
+        //     .runtime
+        //     .block_on(HtmlParser::get_html_source_no_script(&url))
+        //     .unwrap();
+        // println!("After html");
+        // CoinMarketCapScrapper::parse_price(html, url)
     }
 
     #[allow(unused)]
@@ -207,7 +261,7 @@ impl CoinMarketCapScrapper {
             // let html = self.html_parser.get_html_source(&url, false)?;
             let html = self
                 .runtime
-                .block_on(self.html_parser.get_html_source(&url, false))
+                .block_on(self.html_parser.get_html_source_with_script(&url, false))
                 .unwrap();
             let regex = r#"<(table) (class=".*?currencies-markets_.*? ")>"#;
             let rel_source = vec![vec![
@@ -223,21 +277,12 @@ impl CoinMarketCapScrapper {
             let rel_price = vec![vec![Child(1), Child(i), Child(3)]];
             let rel_vol = vec![vec![Child(1), Child(i), Child(4), Child(0)]];
             let rel_vol_perc = vec![vec![Child(1), Child(1), Child(5), Child(0), Child(0)]];
-            let inner_source = self
-                .html_parser
-                .get_inner_html_from_element(regex, &html, rel_source)?;
-            let inner_pairs = self
-                .html_parser
-                .get_inner_html_from_element(regex, &html, rel_pairs)?;
-            let inner_price = self
-                .html_parser
-                .get_inner_html_from_element(regex, &html, rel_price)?;
-            let inner_vol = self
-                .html_parser
-                .get_inner_html_from_element(regex, &html, rel_vol)?;
+            let inner_source = HtmlParser::get_inner_html_from_element(regex, &html, rel_source)?;
+            let inner_pairs = HtmlParser::get_inner_html_from_element(regex, &html, rel_pairs)?;
+            let inner_price = HtmlParser::get_inner_html_from_element(regex, &html, rel_price)?;
+            let inner_vol = HtmlParser::get_inner_html_from_element(regex, &html, rel_vol)?;
             let inner_vol_perc =
-                self.html_parser
-                    .get_inner_html_from_element(regex, &html, rel_vol_perc)?;
+                HtmlParser::get_inner_html_from_element(regex, &html, rel_vol_perc)?;
             result.push(MarketResult {
                 source: String::from(&inner_source[0]),
                 pair: String::from(&inner_pairs[0]),
@@ -260,6 +305,7 @@ mod html_parser {
     use std::collections::HashMap;
     use std::error::Error;
     use std::fmt;
+    use std::time::{Duration, Instant};
     // use tokio::runtime::Runtime;
 
     pub struct ParseError {
@@ -294,17 +340,24 @@ mod html_parser {
 
     pub struct HtmlParser {
         client: fantoccini::Client,
-        cache: HashMap<String, String>,
+        cache: HashMap<String, CacheEntry>,
+        refresh_after: Duration,
+    }
+
+    pub struct CacheEntry {
+        html: String,
+        timestamp: Instant,
     }
 
     impl HtmlParser {
-        pub async fn new() -> HtmlParser {
+        pub async fn new(refresh_after: u64) -> HtmlParser {
             return HtmlParser {
                 client: ClientBuilder::native()
                     .connect("http://localhost:9515")
                     .await
                     .unwrap(),
                 cache: HashMap::new(),
+                refresh_after: Duration::from_secs(refresh_after),
             };
         }
 
@@ -312,16 +365,30 @@ mod html_parser {
             self.client.close().await.unwrap();
         }
 
-        pub async fn get_html_source(
+        pub async fn get_html_source_no_script(url: &str) -> Result<String, ParseError> {
+            Ok(reqwest::get(url).await.unwrap().text().await.unwrap())
+        }
+
+        pub async fn get_html_source_with_script(
             &mut self,
             url: &str,
             reload: bool,
         ) -> Result<String, ParseError> {
             //first lets check if we have the source already in the cache if we don't need to reload
-            if !reload {
-                //check if data is alread in the cache
-                if self.cache.contains_key(url) {
-                    return Ok(String::from(self.cache.get(url).unwrap()));
+            //check if data is alread in the cache
+            let in_cache = self.cache.contains_key(url);
+            if !reload && in_cache || (reload && in_cache) {
+                let entry = self.cache.get(url).unwrap();
+                println!(
+                    "timestamp elapsed: {}\n refresh after: {}",
+                    entry.timestamp.elapsed().as_secs(),
+                    self.refresh_after.as_secs()
+                );
+                if !reload || entry.timestamp.elapsed().as_secs() < self.refresh_after.as_secs() {
+                    println!("Getting value from cache");
+                    return Ok(String::from(&entry.html));
+                } else {
+                    println!("Reloading value");
                 }
             };
             // let rt = Runtime::new().unwrap();
@@ -332,11 +399,16 @@ mod html_parser {
             // let _re = self.client.close().await.unwrap();
             // });
             //add data to cache
-            self.cache.insert(String::from(url), String::from(&source));
+            self.cache.insert(
+                String::from(url),
+                CacheEntry {
+                    html: String::from(&source),
+                    timestamp: Instant::now(),
+                },
+            );
             Ok(source)
         }
         pub fn get_inner_html_from_element(
-            &self,
             regex: &str,
             source: &str,
             relations: Vec<Vec<ElementRelation>>,
@@ -418,9 +490,9 @@ mod tests {
     #[test]
     fn test_get_price_existing_symbol() {
         let mut scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
-        let (price, percentage) = scrapper.get_price("multi-collateral-dai").unwrap();
-        assert_eq!(price, 1.0); //testing with stable coin. expected value is 1.0
-        assert!(percentage < 0.2 && percentage > -0.2); //testing with a stable coin. Difference should be less than 0.2%
+        let result = scrapper.get_price("multi-collateral-dai").unwrap();
+        assert_eq!(result.price, 1.0); //testing with stable coin. expected value is 1.0
+        assert!(result.change < 0.2 && result.change > -0.2); //testing with a stable coin. Difference should be less than 0.2%
     }
     #[test]
     fn test_get_price_non_existing_symbol() {
