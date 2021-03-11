@@ -22,27 +22,28 @@ fn main() {
     //     Err(s) => println!("{}", s),
     // }
     let now = Instant::now();
-    let _price = scrapper.get_all_prices();
-    println!("Parallel time elapsed: {}", now.elapsed().as_secs());
-    // match price {
-    //     Ok(res) => {
-    //         for r in res {
-    //             println!("{}", r)
-    //         }
-    //     }
-    //     Err(s) => println!("{}", s),
-    // }
+    let price = scrapper.get_all_prices();
+    let elapsed = now.elapsed().as_secs();
+    match price {
+        Ok(res) => {
+            for r in res {
+                println!("{}", r)
+            }
+        }
+        Err(s) => println!("{}", s),
+    }
+    println!("\n\nParallel time elapsed: {}\n\n", elapsed);
     let symbols = scrapper.cfg.get_symbols();
     let mut result = Vec::new();
     let now = Instant::now();
     for s in symbols {
         result.push(scrapper.get_price(&s).unwrap());
     }
-    println!("sequentiell time elapsed {}", now.elapsed().as_secs());
-    // for r in result {
-    //     println!("{}", r)
-    // }
-
+    let elapsed = now.elapsed().as_secs();
+    for r in result {
+        println!("{}", r)
+    }
+    println!("\n\nsequentiell time elapsed {}\n\n", elapsed);
     // println!("Result has {} entries", result.len());
     // let response = scrapper.get_market_data("iota", 3);
     // match response {

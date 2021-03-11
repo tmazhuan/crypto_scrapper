@@ -152,19 +152,23 @@ impl CoinMarketCapScrapper {
     }
     pub fn get_prices(&self, symbols: &Vec<String>) -> Result<Vec<PriceResult>, ParseError> {
         let x = self.runtime.block_on(async {
+            let mut handle_vector = Vec::new();
             let mut result = Vec::new();
             for s in symbols {
                 let symbol = String::from(s);
                 let r = tokio::spawn(async move {
-                    println!("Spawning {}", symbol);
+                    // println!("Spawning {}", symbol);
                     let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
                     let html = HtmlParser::get_html_source_no_script(&url).await.unwrap();
                     CoinMarketCapScrapper::parse_price(html, url, symbol).unwrap()
-                })
-                .await
-                .unwrap();
-                println!("Pushing {}", r.symbol);
-                result.push(r);
+                });
+                // .await
+                // .unwrap();
+                // println!("Pushing {}", r.symbol);
+                handle_vector.push(r);
+            }
+            for h in handle_vector {
+                result.push(h.await.unwrap());
             }
             result
         });
