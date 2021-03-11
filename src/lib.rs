@@ -18,6 +18,11 @@ impl Display for PriceResult {
         write!(f, "{}: {} ({})", self.symbol, self.price, self.change)
     }
 }
+impl PriceResult {
+    pub fn to_string(&self) -> String {
+        String::from(format!("{}\t{}", self.symbol, self.price))
+    }
+}
 pub struct MarketResult {
     source: String,
     pair: String,
@@ -82,14 +87,18 @@ impl Drop for CoinMarketCapScrapper {
 }
 
 impl CoinMarketCapScrapper {
-    pub fn new(config_file_location: String) -> CoinMarketCapScrapper {
-        println!("in CoinMarketCapScrapper::new");
+    pub fn new(config_file_location: String) -> Result<CoinMarketCapScrapper, ParseError> {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        CoinMarketCapScrapper {
+        let hparser = rt.block_on(async { HtmlParser::new(300).await });
+        let hparser = match hparser {
+            Ok(p) => p,
+            Err(e) => return Err(e),
+        };
+        Ok(CoinMarketCapScrapper {
             cfg: ConfigObject::new(config_file_location),
-            html_parser: rt.block_on(async { HtmlParser::new(0).await }),
+            html_parser: hparser,
             runtime: rt,
-        }
+        })
     }
     pub fn get_details(&mut self, symbol: &str) -> Result<String, ParseError> {
         println!("in CoinMarketCapScrapper::new_get_details");
@@ -236,16 +245,6 @@ impl CoinMarketCapScrapper {
     pub fn get_price(&self, symbol: &str) -> Result<PriceResult, ParseError> {
         let mut result = self.get_prices(&vec![String::from(symbol)]).unwrap();
         Ok(result.pop().unwrap())
-        // let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        // // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
-        // // let html = self.html_parser.get_html_source(&url, true)?;
-        // println!("Before html");
-        // let html = self
-        //     .runtime
-        //     .block_on(HtmlParser::get_html_source_no_script(&url))
-        //     .unwrap();
-        // println!("After html");
-        // CoinMarketCapScrapper::parse_price(html, url)
     }
 
     #[allow(unused)]
@@ -259,14 +258,12 @@ impl CoinMarketCapScrapper {
         number_of_results: i32,
     ) -> Result<Vec<MarketResult>, ParseError> {
         let mut result = Vec::new();
+        let url = format!("https://coinmarketcap.com/currencies/{}/markets", symbol);
+        let html = self
+            .runtime
+            .block_on(self.html_parser.get_html_source_with_script(&url, false))
+            .unwrap();
         for i in 0..number_of_results {
-            let url = format!("https://coinmarketcap.com/currencies/{}/markets", symbol);
-            // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
-            // let html = self.html_parser.get_html_source(&url, false)?;
-            let html = self
-                .runtime
-                .block_on(self.html_parser.get_html_source_with_script(&url, false))
-                .unwrap();
             let regex = r#"<(table) (class=".*?currencies-markets_.*? ")>"#;
             let rel_source = vec![vec![
                 Child(1),
@@ -354,15 +351,23 @@ mod html_parser {
     }
 
     impl HtmlParser {
-        pub async fn new(refresh_after: u64) -> HtmlParser {
-            return HtmlParser {
-                client: ClientBuilder::native()
-                    .connect("http://localhost:9515")
-                    .await
-                    .unwrap(),
+        pub async fn new(refresh_after: u64) -> Result<HtmlParser, ParseError> {
+            let c = match ClientBuilder::native()
+                .connect("http://localhost:9515")
+                .await
+            {
+                Ok(c) => c,
+                Err(_) => {
+                    return Err(ParseError::new(String::from(
+                        "Make sure Chromedriver is started.",
+                    )))
+                }
+            };
+            return Ok(HtmlParser {
+                client: c,
                 cache: HashMap::new(),
                 refresh_after: Duration::from_secs(refresh_after),
-            };
+            });
         }
 
         pub async fn close_connection(&mut self) {
@@ -383,21 +388,17 @@ mod html_parser {
             let in_cache = self.cache.contains_key(url);
             if !reload && in_cache || (reload && in_cache) {
                 let entry = self.cache.get(url).unwrap();
-                println!(
-                    "timestamp elapsed: {}\n refresh after: {}",
-                    entry.timestamp.elapsed().as_secs(),
-                    self.refresh_after.as_secs()
-                );
                 if !reload || entry.timestamp.elapsed().as_secs() < self.refresh_after.as_secs() {
                     println!("Getting value from cache");
                     return Ok(String::from(&entry.html));
                 } else {
-                    println!("Reloading value");
+                    println!("Outdated value in cache. Reloading value");
                 }
             };
             // let rt = Runtime::new().unwrap();
             // let mut source = String::new();
             // rt.block_on(async {
+            println!("loading URL and store it in cache");
             self.client.goto(url).await.unwrap();
             let source = self.client.source().await.unwrap();
             // let _re = self.client.close().await.unwrap();
@@ -493,14 +494,14 @@ mod tests {
     // }
     #[test]
     fn test_get_price_existing_symbol() {
-        let mut scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
+        let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml")).unwrap();
         let result = scrapper.get_price("multi-collateral-dai").unwrap();
         assert_eq!(result.price, 1.0); //testing with stable coin. expected value is 1.0
         assert!(result.change < 0.2 && result.change > -0.2); //testing with a stable coin. Difference should be less than 0.2%
     }
     #[test]
     fn test_get_price_non_existing_symbol() {
-        let mut scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
+        let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml")).unwrap();
         let result = scrapper.get_price("aseff");
         match result {
             Ok(_) => assert!(false, "expected an error"),

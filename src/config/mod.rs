@@ -33,6 +33,11 @@ impl Default for ConfigObject {
         }
     }
 }
+impl Drop for ConfigObject {
+    fn drop(&mut self) {
+        self.store().unwrap();
+    }
+}
 
 impl ConfigObject {
     pub fn new(config_file_location: String) -> ConfigObject {
@@ -44,6 +49,9 @@ impl ConfigObject {
         }
     }
 
+    pub fn delete_symbol(&mut self, i: usize) -> String {
+        self.configuration.symbols.remove(i)
+    }
     pub fn add_symbol(&mut self, symbol: String) {
         &self.configuration.symbols.push(symbol);
     }

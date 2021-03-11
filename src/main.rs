@@ -1,64 +1,37 @@
 pub mod config;
+pub mod frontend;
 
-// use config::*;
 use crypto_scrapper::CoinMarketCapScrapper;
-use std::time::Instant;
+use frontend::*;
+
 fn main() {
     // quick_test();
-    let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml"));
-    // println!("in main after CoinMarketScrapper::new");
-    // let symbols = vec![
-    //     "iota".to_string(),
-    //     "bitcoin".to_string(),
-    //     "ethereum".to_string(),
-    // ];
-    // let price = scrapper.get_prices(&symbols);
+    let scrapper = match CoinMarketCapScrapper::new(String::from("./config/config.toml")) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("{}", e.to_string());
+            return;
+        }
+    };
+    cli_menu(scrapper);
+    // let now = Instant::now();
+    // let price = scrapper.get_all_prices();
+    // let elapsed = now.elapsed().as_secs();
+    // let mut clip_ = String::new();
     // match price {
     //     Ok(res) => {
-    //         for r in res {
-    //             println!("{}", r)
-    //         }
+    //         clip_ = res.iter().fold(String::new(), |clip, x| {
+    //             format!("{}{}\n", clip, x.to_string())
+    //         });
+    //         // for r in res {
+    //         //     clip_.push_str(&r.to_string());
+    //         //     clip_.push('\n');
+    //         // }
     //     }
     //     Err(s) => println!("{}", s),
     // }
-    let now = Instant::now();
-    let price = scrapper.get_all_prices();
-    let elapsed = now.elapsed().as_secs();
-    match price {
-        Ok(res) => {
-            for r in res {
-                println!("{}", r)
-            }
-        }
-        Err(s) => println!("{}", s),
-    }
-    println!("\n\nParallel time elapsed: {}\n\n", elapsed);
-    let symbols = scrapper.cfg.get_symbols();
-    let mut result = Vec::new();
-    let now = Instant::now();
-    for s in symbols {
-        result.push(scrapper.get_price(&s).unwrap());
-    }
-    let elapsed = now.elapsed().as_secs();
-    for r in result {
-        println!("{}", r)
-    }
-    println!("\n\nsequentiell time elapsed {}\n\n", elapsed);
-    // println!("Result has {} entries", result.len());
-    // let response = scrapper.get_market_data("iota", 3);
-    // match response {
-    //     Ok(res) => {
-    //         for r in res {
-    //             println!("{}", r);
-    //         }
-    //     }
-    //     Err(e) => println!("{}", e),
-    // }
-    // let details = scrapper.get_details("bitcoin");
-    // match details {
-    //     Ok(r) => println!("{}", r),
-    //     Err(e) => println!("{}", e),
-    // }
+    // to_clip(clip_);
+    // println!("\n\nParallel time elapsed: {}\n\n", elapsed);
 }
 
 #[allow(unused)]
