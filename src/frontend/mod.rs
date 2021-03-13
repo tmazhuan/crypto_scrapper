@@ -1,31 +1,29 @@
 use clipboard_win::{formats, Clipboard, Setter};
 use crypto_scrapper::CoinMarketCapScrapper;
 
+///Funtion to copy the String stored in `value`to the System Clipboard.
 pub fn to_clip(value: String) {
     let _clip = Clipboard::new_attempts(10).unwrap();
     formats::Unicode.write_clipboard(&value).unwrap();
 }
-fn read_std_input<'a>() -> String {
+///Reads the input from the `stdin` and returns the trimmed version as a String
+fn read_std_input() -> String {
     let mut line = String::new();
     std::io::stdin().read_line(&mut line).unwrap();
     String::from(line.trim())
 }
 
+///Enumarates and formats the content of the `symbols`vector and returns the resulting String
 fn get_indexed_symbols(symbols: &Vec<String>) -> String {
-    let r = symbols.iter().fold(vec![String::from("")], |mut v, x| {
-        let i = v.len();
-        v.push(String::from(format!(
-            "{}\n{}. {}",
-            v.get(i - 1).unwrap(),
-            i,
-            x
-        )));
-        v
-    });
-    let i = r.len();
-    String::from(r.get(i - 1).unwrap())
+    let mut i = 1;
+    symbols.iter().fold(String::from(""), |mut s, x| {
+        s.push_str(&format!("{}. {}\n", i, x));
+        i += 1;
+        s
+    })
 }
 
+///The main menu loop of the Commandline Interface
 pub fn cli_menu(mut scrapper: CoinMarketCapScrapper) {
     let mut level = 0;
     let mut exit = false;

@@ -51,21 +51,13 @@ impl Display for MarketResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let column_widht = 15;
         let mut result = String::from(&self.source);
-        // let mut len = self.source.len();
-        // println!("{}", column_widht - len);
         result.push_str(&self.get_spaces(column_widht - self.source.len()));
         result.push_str(&self.pair);
-        // len = self.pair.len();
-        // println!("{}", column_widht - len);
         result.push_str(&self.get_spaces(column_widht - self.pair.len()));
         let price = format!("{}", (self.price));
-        // len = price.len();
-        // println!("{}", column_widht - len);
         result.push_str(&price);
         result.push_str(&self.get_spaces(column_widht - price.len()));
         let vol = format!("{}", (self.volume));
-        // len = vol.len();
-        // println!("{}", column_widht - len);
         result.push_str(&vol);
         result.push_str(&self.get_spaces(column_widht - vol.len()));
         let vol_per = format!("{}", (self.volume_percent));
@@ -104,12 +96,10 @@ impl CoinMarketCapScrapper {
         println!("in CoinMarketCapScrapper::new_get_details");
 
         let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        // let html = reqwest::blocking::get(&url).unwrap().text().unwrap();
         let html = self
             .runtime
             .block_on(self.html_parser.get_html_source_with_script(&url, false))
             .unwrap();
-        // let html = self.html_parser.get_html_source(&url, false)?;
         let mut what_is_inner = match HtmlParser::get_inner_html_from_element(
             &self.cfg.configuration.what_is_regex,
             &html,
@@ -166,14 +156,10 @@ impl CoinMarketCapScrapper {
             for s in symbols {
                 let symbol = String::from(s);
                 let r = tokio::spawn(async move {
-                    // println!("Spawning {}", symbol);
                     let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
                     let html = HtmlParser::get_html_source_no_script(&url).await.unwrap();
                     CoinMarketCapScrapper::parse_price(html, url, symbol).unwrap()
                 });
-                // .await
-                // .unwrap();
-                // println!("Pushing {}", r.symbol);
                 handle_vector.push(r);
             }
             for h in handle_vector {
@@ -182,15 +168,6 @@ impl CoinMarketCapScrapper {
             result
         });
         Ok(x)
-
-        // let r = self
-        //     .runtime
-        //     .block_on(tokio::spawn(async move {
-        //         let url = format!("https://coinmarketcap.com/currencies/{}/", symbol);
-        //         let html = HtmlParser::get_html_source_no_script(&url).await.unwrap();
-        //         CoinMarketCapScrapper::parse_price(html, url).unwrap()
-        //     }))
-        //     .unwrap();
     }
     fn parse_price(html: String, url: String, symbol: String) -> Result<PriceResult, ParseError> {
         let reg_price_section = r#"(div) (class=".{1,20}priceTitle__.{1,20}")>"#;
@@ -307,7 +284,6 @@ mod html_parser {
     use std::error::Error;
     use std::fmt;
     use std::time::{Duration, Instant};
-    // use tokio::runtime::Runtime;
 
     pub struct ParseError {
         details: String,
@@ -357,10 +333,11 @@ mod html_parser {
                 .await
             {
                 Ok(c) => c,
-                Err(_) => {
+                Err(e) => {
+                    println!("{}", e);
                     return Err(ParseError::new(String::from(
                         "Make sure Chromedriver is started.",
-                    )))
+                    )));
                 }
             };
             return Ok(HtmlParser {
@@ -378,6 +355,9 @@ mod html_parser {
             Ok(reqwest::get(url).await.unwrap().text().await.unwrap())
         }
 
+        ///Loads the html source of the given url after having executed javascript functionality on the page. If the corresponding page is
+        /// is alsredy stored in the cache and the `reload`parameter is set to false and the cache is not outdate, the result is loaded from
+        /// the cache, otherwise it is loaded online.
         pub async fn get_html_source_with_script(
             &mut self,
             url: &str,
@@ -395,15 +375,9 @@ mod html_parser {
                     println!("Outdated value in cache. Reloading value");
                 }
             };
-            // let rt = Runtime::new().unwrap();
-            // let mut source = String::new();
-            // rt.block_on(async {
             println!("loading URL and store it in cache");
             self.client.goto(url).await.unwrap();
             let source = self.client.source().await.unwrap();
-            // let _re = self.client.close().await.unwrap();
-            // });
-            //add data to cache
             self.cache.insert(
                 String::from(url),
                 CacheEntry {
@@ -430,9 +404,7 @@ mod html_parser {
                     )));
                 }
             };
-            // println!("tag: {}, attribute: {}", tag, attribute);
             let selector = Selector::parse(&format!("{}[{}]", tag, attribute)).unwrap();
-            // let element = document.select(&selector).next().unwrap();
             let document = Html::parse_document(&source);
             let r = document.select(&selector).next().unwrap();
             let mut result: Vec<String> = Vec::new();
@@ -444,6 +416,7 @@ mod html_parser {
         }
     }
 
+    ///Navigate
     fn navigate_relation(rel: Vec<ElementRelation>, element: scraper::ElementRef) -> ElementRef {
         let mut result = element.clone();
         for relation in rel.iter() {
@@ -470,7 +443,6 @@ mod html_parser {
                     sib
                 } //ElementRelation::Sibling
             }; //match relation
-               // println!("result: {}\n\n", result.inner_html());
         } //for relation
         result
     } //fn navigate_relation
@@ -479,19 +451,6 @@ mod html_parser {
 #[cfg(test)]
 mod tests {
     use super::CoinMarketCapScrapper;
-    #[test]
-    // fn test_get_inner_html_from_element() {
-    //     let source = r#"<div class="sc-16r8icm-0 kXPxnI priceSection___3kA4m"><h1 class="priceHeading___2GB9O">BakeryToken Price<!-- --> <small>(<!-- -->BAKE<!-- -->)</small></h1><div class="sc-16r8icm-0 kXPxnI priceTitle___1cXUG"><div class="priceValue___11gHJ">$1.21</div><span style="background-color:var(--down-color);color:#fff;padding:5px 10px;border-radius:8px;font-size:14px;font-weight:600" class="sc-1v2ivon-0 gClTFY"><span class="icon-Caret-down"></span>18.45<!-- -->%</span></div><div class="sc-16r8icm-0 kXPxnI alternatePrices___1M7uY"><p class="sc-10nusm4-0 bspaAT">0.00002477 BTC<span style="color:var(--down-color);padding:0;border-radius:8px" class="sc-1v2ivon-0 gClTFY"><span class="icon-Caret-down"></span>15.53<!-- -->%</span></p><p class="sc-10nusm4-0 bspaAT">0.0007738 ETH<span style="color:var(--down-color);padding:0;border-radius:8px" class="sc-1v2ivon-0 gClTFY"><span class="icon-Caret-down"></span>15.52<!-- -->%</span></p></div><div class="sc-16r8icm-0 kXPxnI sliderSection___tjBoJ"><div class="sc-16r8icm-0 hfoyRV nowrap___2C79N"><span class="highLowLabel___2bI-G">Low<!-- -->:</span><span class="highLowValue___GfyK7">$1.21</span></div><div class="sc-16r8icm-0 kXPxnI slider___2_uly"><span style="width:100%" class="sc-1hm9f3g-0 dmzjSD"><span style="width: 0.414647%;"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" height="24px" width="24px" viewBox="0 0 24 24" class="sc-16r8icm-0 eZMaTl sc-1hm9f3g-1 cbEuhW"><path d="M18.0566 16H5.94336C5.10459 16 4.68455 14.9782 5.27763 14.3806L11.3343 8.27783C11.7019 7.90739 12.2981 7.90739 12.6657 8.27783L18.7223 14.3806C19.3155 14.9782 18.8954 16 18.0566 16Z"></path></svg></span></span></div><div class="sc-16r8icm-0 ejXAFe nowrap___2C79N"><span class="highLowLabel___2bI-G">High<!-- -->:</span><span class="highLowValue___GfyK7">$1.54</span></div><div class="sc-16r8icm-0 ejphsb namePillBase___AZ1aa" display="inline-block">24h<svg xmlns="http://www.w3.org/2000/svg" fill="none" height="12" width="12" viewBox="0 0 24 24" style="height:10px" class="sc-16r8icm-0 cqmVDB"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg></div></div><div class="priceInfoPopup___gpebJ "><span><img src="https://s2.coinmarketcap.com/static/img/coins/64x64/7064.png" height="24" width="24" alt="BAKE">&nbsp;&nbsp;<b>BakeryToken</b>&nbsp;<!-- -->BAKE</span><span><span class="price"><span>Price: </span>$1.21<!-- -->&nbsp;<span style="background-color:var(--down-color);color:#fff;padding:3px 10px;border-radius:8px" class="qe1dn9-0 RYkpI"><span class="icon-Caret-down"></span>18.45<!-- -->%</span></span><span class="sc-7f3up6-1 dtMKRz is-starred"><button class="sc-1ejyco6-0 eBGPbT sc-7pvt85-0 ccOrkS" style="width: auto; padding: 0px 8px;">Remove from Main Watchlist &nbsp;<span class="icon-Star-Filled"></span></button></span></span></div></div>"#;
-    //     let regex = r#"<(div) class="(priceTitle_.*?)">.*?</div>"#;
-    //     let result =
-    //         html_parser::get_inner_html_from_element(regex, source, ElementRelation::Child(0));
-    //     match result {
-    //         Ok(c) => {
-    //             assert_eq!(c.inner_html(),String::from()
-    //         }
-    //         Err(e) => panic!("no result"),
-    //     }
-    // }
     #[test]
     fn test_get_price_existing_symbol() {
         let scrapper = CoinMarketCapScrapper::new(String::from("./config/config.toml")).unwrap();

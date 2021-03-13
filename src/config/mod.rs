@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 use toml;
 
+///Structure to store replacement expression which are used to replace sections inside a html text
 #[derive(Serialize, Deserialize)]
 pub struct Replace {
     pub from: String,
     pub to: String,
 }
+///Structure which holds the configuration details
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub symbols: Vec<String>,
@@ -17,6 +19,7 @@ pub struct Config {
     pub price_regex: String,
     pub replace: Vec<Replace>,
 }
+//The Configuration instance containing configuratio details and file location
 pub struct ConfigObject {
     pub configuration: Config,
     source: String,
@@ -40,21 +43,24 @@ impl Drop for ConfigObject {
 }
 
 impl ConfigObject {
-    pub fn new(config_file_location: String) -> ConfigObject {
-        let config_text = std::fs::read_to_string(&config_file_location).unwrap();
+    /// Constructs a new `ConfigObject` with the specified configuration file `config_file`.
+    pub fn new(config_file: String) -> ConfigObject {
+        let config_text = std::fs::read_to_string(&config_file).unwrap();
         let config_const_values: Config = toml::from_str(&config_text).unwrap();
         ConfigObject {
             configuration: config_const_values,
-            source: config_file_location,
+            source: config_file,
         }
     }
-
+    ///Deletes the symbol at index `i` from the `ConfigObject`
     pub fn delete_symbol(&mut self, i: usize) -> String {
         self.configuration.symbols.remove(i)
     }
+    ///Adds the `symbol` to the `ConfigObject`
     pub fn add_symbol(&mut self, symbol: String) {
         &self.configuration.symbols.push(symbol);
     }
+    ///Return the symbols stored in the `ConfigObject` inside of a `Vec`
     pub fn get_symbols(&self) -> Vec<String> {
         let mut result = Vec::new();
         for s in &self.configuration.symbols {
@@ -62,7 +68,7 @@ impl ConfigObject {
         }
         return result;
     }
-
+    ///Stores the `ConfigObject` back to its file
     pub fn store(&self) -> std::io::Result<()> {
         std::fs::write(
             &self.source,
