@@ -14,6 +14,3 @@ fn main() {
     };
     cli_menu(scrapper);
 }
-
-#[allow(unused)]
-fn quick_test() {}

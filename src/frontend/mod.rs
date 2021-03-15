@@ -87,11 +87,15 @@ pub fn cli_menu(mut scrapper: CoinMarketCapScrapper) {
                 );
                 let j = read_std_input().parse::<usize>().unwrap();
                 if j <= i {
-                    if let Ok(r) = scrapper.get_details(symbols.get(j - 1).unwrap()) {
-                        println!("{}", r);
-                    } else {
-                        println!("Symbol not recognized. Try again.");
-                    }
+                    match scrapper.get_details(symbols.get(j - 1).unwrap()) {
+                        Ok(r) => println!("{}", r),
+                        Err(e) => println!("{}", e),
+                    };
+                    // if let Ok(r) = scrapper.get_details(symbols.get(j - 1).unwrap()) {
+                    //     println!("{}", r);
+                    // } else {
+                    //     println!("Symbol not recognized. Try again.");
+                    // }
                 }
             } else if input == "3" {
                 level = 0;
