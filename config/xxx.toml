@@ -3,3 +3,4 @@ ip = "33.33.33.33"
 [keys]
 github = "lkasjs"
 travis = "sadfa3"
+# price_regex = "<div class=\"priceValue_.*?\">(.*?)</div>"

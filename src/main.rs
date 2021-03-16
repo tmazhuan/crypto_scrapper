@@ -8,7 +8,10 @@ fn main() {
     let scrapper = match CoinMarketCapScrapper::new(String::from("./config/config.toml")) {
         Ok(s) => s,
         Err(e) => {
-            println!("{}", e.to_string());
+            println!(
+                "{}\nMake sure that you specify an existing configuration file.",
+                e.to_string()
+            );
             return;
         }
     };

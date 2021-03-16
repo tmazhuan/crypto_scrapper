@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::io;
 use toml;
 
 ///Structure to store replacement expression which are used to replace sections inside a html text
@@ -17,9 +18,10 @@ pub struct Config {
     pub what_is_regex: String,
     pub title_regex: String,
     pub price_regex: String,
+    pub price_percentage_regex: String,
     pub replace: Vec<Replace>,
 }
-//The Configuration instance containing configuratio details and file location
+///The Configuration instance containing configuratio details and file location
 pub struct ConfigObject {
     pub configuration: Config,
     source: String,
@@ -44,19 +46,27 @@ impl Drop for ConfigObject {
 
 impl ConfigObject {
     /// Constructs a new `ConfigObject` with the specified configuration file `config_file`.
-    pub fn new(config_file: String) -> ConfigObject {
-        let config_text = std::fs::read_to_string(&config_file).unwrap();
+    /// # Arguments
+    /// * `config_file`- the location of the config file to be used
+    /// # Errors
+    /// If there is an IO error and error is returned
+    pub fn new(config_file: String) -> Result<ConfigObject, io::Error> {
+        let config_text = std::fs::read_to_string(&config_file)?;
         let config_const_values: Config = toml::from_str(&config_text).unwrap();
-        ConfigObject {
+        Ok(ConfigObject {
             configuration: config_const_values,
             source: config_file,
-        }
+        })
     }
     ///Deletes the symbol at index `i` from the `ConfigObject`
+    /// # Arguments
+    /// * `i` - Index of the symbol to be deleted
     pub fn delete_symbol(&mut self, i: usize) -> String {
         self.configuration.symbols.remove(i)
     }
     ///Adds the `symbol` to the `ConfigObject`
+    /// # Arguments
+    /// * `symbol`- The symbol to be added
     pub fn add_symbol(&mut self, symbol: String) {
         &self.configuration.symbols.push(symbol);
     }

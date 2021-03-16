@@ -1,5 +1,6 @@
 use clipboard_win::{formats, Clipboard, Setter};
 use crypto_scrapper::CoinMarketCapScrapper;
+use crypto_scrapper::MarketResult;
 
 ///Funtion to copy the String stored in `value`to the System Clipboard.
 pub fn to_clip(value: String) {
@@ -82,7 +83,7 @@ pub fn cli_menu(mut scrapper: CoinMarketCapScrapper) {
                 let i = symbols.len();
                 println!("{}", get_indexed_symbols(&symbols));
                 println!(
-                    "Which item you want to delete? Enter \"{}\" to go back to the menu without getting details.",
+                    "Which item you want to get details of? Enter \"{}\" to go back to the menu without getting details.",
                     i+1
                 );
                 let j = read_std_input().parse::<usize>().unwrap();
@@ -109,6 +110,7 @@ pub fn cli_menu(mut scrapper: CoinMarketCapScrapper) {
                 println!("Enter symbol:");
                 input = read_std_input();
                 if let Ok(r) = scrapper.get_market_data(&input, 3) {
+                    println!("{}", MarketResult::get_header());
                     r.iter().for_each(|r| println!("{}", r));
                 } else {
                     println!("Symbol not recognized. Try again.");
@@ -124,6 +126,7 @@ pub fn cli_menu(mut scrapper: CoinMarketCapScrapper) {
                 let j = read_std_input().parse::<usize>().unwrap();
                 if j <= i {
                     if let Ok(r) = scrapper.get_market_data(symbols.get(j - 1).unwrap(), 3) {
+                        println!("{}", MarketResult::get_header());
                         r.iter().for_each(|r| println!("{}", r));
                     } else {
                         println!("Symbol not recognized. Try again.");
